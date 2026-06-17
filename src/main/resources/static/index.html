@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CGMES Utility Service</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; }
+    header { padding: 1rem; background: #12355b; color: #fff; }
+    main { display: grid; grid-template-columns: 26rem 1fr; min-height: calc(100vh - 4.5rem); }
+    aside { padding: 1rem; border-right: 1px solid #d0d7de; }
+    #map { min-height: 36rem; height: 100%; }
+    pre, textarea { width: 100%; box-sizing: border-box; }
+    textarea { min-height: 12rem; }
+  </style>
+</head>
+<body>
+<header><h1>CGMES Utility Service</h1></header>
+<main>
+  <aside>
+    <h2>Load CGMES</h2>
+    <input id="cgmes" type="file" multiple>
+    <button onclick="loadCgmes()">Load data</button>
+    <pre id="summary">No model loaded.</pre>
+    <h2>Run SHACL</h2>
+    <input id="shapes" type="file">
+    <button onclick="runShacl()">Validate</button>
+    <textarea id="results" readonly></textarea>
+    <p><a href="/swagger-ui.html">OpenAPI / Swagger UI</a></p>
+  </aside>
+  <div id="map"></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([52, 10], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  const layer = L.geoJSON(null, {
+    onEachFeature: (feature, marker) => marker.bindPopup(`<strong>${feature.properties.name}</strong><br>${feature.properties.type}`)
+  }).addTo(map);
+
+  async function loadCgmes() {
+    const form = new FormData();
+    for (const file of document.getElementById('cgmes').files) form.append('files', file);
+    const response = await fetch('/api/cgmes/load', { method: 'POST', body: form });
+    document.getElementById('summary').textContent = JSON.stringify(await response.json(), null, 2);
+    await refreshFeatures();
+  }
+
+  async function refreshFeatures() {
+    const data = await (await fetch('/api/cgmes/features')).json();
+    layer.clearLayers().addData(data);
+    if (layer.getLayers().length) map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+  }
+
+  async function runShacl() {
+    const form = new FormData();
+    const file = document.getElementById('shapes').files[0];
+    if (!file) return;
+    form.append('shapes', file);
+    const response = await fetch('/api/cgmes/shacl', { method: 'POST', body: form });
+    const data = await response.json();
+    document.getElementById('results').value = data.resultsText + '\n\n' + data.resultsTurtle;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: CGMES Utility Service API
+  version: 0.1.0
+  description: Parse CGMES RDF, run SHACL validation, and expose GeoJSON for European map visualisation.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/cgmes/load:
+    post:
+      tags: [CGMES Utility]
+      summary: Load CGMES files
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '200':
+          description: Loaded model summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseSummary'
+  /api/cgmes/summary:
+    get:
+      tags: [CGMES Utility]
+      summary: Return summary for the loaded model
+      responses:
+        '200':
+          description: Current model summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseSummary'
+        '404':
+          description: No model has been loaded
+  /api/cgmes/features:
+    get:
+      tags: [CGMES Utility]
+      summary: Return GeoJSON features for coordinate-bearing resources
+      responses:
+        '200':
+          description: GeoJSON feature collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoJsonFeatureCollection'
+  /api/cgmes/shacl:
+    post:
+      tags: [CGMES Utility]
+      summary: Validate the loaded model with SHACL shapes
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [shapes]
+              properties:
+                shapes:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: SHACL validation report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShaclValidationResponse'
+        '404':
+          description: No model has been loaded
+components:
+  schemas:
+    ParseSummary:
+      type: object
+      properties:
+        triples:
+          type: integer
+          format: int64
+        typedResources:
+          type: integer
+          format: int64
+        equipmentCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        topTypes:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+    GeoJsonFeatureCollection:
+      type: object
+      properties:
+        type:
+          type: string
+          example: FeatureCollection
+        features:
+          type: array
+          items:
+            type: object
+    ShaclValidationResponse:
+      type: object
+      properties:
+        conforms:
+          type: boolean
+        resultsText:
+          type: string
+        resultsTurtle:
+          type: string
